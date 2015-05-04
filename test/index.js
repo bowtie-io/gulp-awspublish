@@ -286,7 +286,7 @@ describe('gulp-awspublish', function () {
   describe('Sync', function() {
 
     // remove files
-    before(function(done) {
+    beforeEach(function(done) {
       var deleteParams = awspublish._buildDeleteMultiple([
         'test/hello.txt',
         'test/hello2.txt',
@@ -306,7 +306,7 @@ describe('gulp-awspublish', function () {
         contents: new Buffer('hello world')
       };
 
-      before(function(done) {
+      beforeEach(function(done) {
         var params = awspublish._toAwsParams(file);
         publisher.client.putObject(params, done);
       });
@@ -316,7 +316,7 @@ describe('gulp-awspublish', function () {
       var stream = gutil.noop();
 
       stream
-        .pipe(publisher.sync('foo'))
+        .pipe(publisher.sync({ prefix: 'foo' }))
         .pipe(es.writeArray(function(err, arr) {
           expect(err).to.not.exist;
           var deleted = arr.filter(function (file) {
@@ -326,6 +326,28 @@ describe('gulp-awspublish', function () {
           }).sort().join(' ');
 
           expect(deleted).to.eq('foo/2.txt foo/3.txt');
+          done(err);
+        }));
+
+      stream.write({ s3: { path: 'foo/1.txt' } });
+      stream.end();
+    });
+
+    it('should not remove files matching the exclude pattern', function(done) {
+      var stream = gutil.noop();
+
+      stream
+        .pipe(publisher.sync({ prefix: 'foo', exclude: /2\.txt/ }))
+        .pipe(es.writeArray(function(err, arr) {
+          expect(err).to.not.exist;
+
+          var deleted = arr.filter(function (file) {
+            return file.s3 && file.s3.state === 'delete';
+          }).map(function (file) {
+            return file.s3.path;
+          }).sort().join(' ');
+
+          expect(deleted).to.eq('foo/3.txt');
           done(err);
         }));
 
